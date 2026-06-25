@@ -55,7 +55,10 @@ fn name_is_correct_for_valid_type() {
 #[test]
 fn name_is_correct_for_invalid_type() {
     // name must always return the correct constant even when the inner value is an error
-    assert_eq!(invalid_point("oops").name(), geoarrow_schema::PointType::NAME);
+    assert_eq!(
+        invalid_point("oops").name(),
+        geoarrow_schema::PointType::NAME
+    );
 }
 
 // --- serialize_metadata ----------------------------------------------------
@@ -142,11 +145,7 @@ fn unequal_valid_and_invalid() {
 fn factory_valid_storage_produces_valid_type() {
     let factory = GeoArrowExtensionTypeFactory;
     // WKB storage is plain Binary, which needs no extra feature flags.
-    let ext = factory.create_type_instance(
-        geoarrow_schema::WkbType::NAME,
-        &DataType::Binary,
-        None,
-    );
+    let ext = factory.create_type_instance(geoarrow_schema::WkbType::NAME, &DataType::Binary, None);
     let display = ext.dyn_display();
     assert!(
         !display.contains("InvalidExtensionType"),
@@ -159,21 +158,15 @@ fn factory_valid_storage_produces_valid_type() {
 #[test]
 fn factory_invalid_storage_does_not_panic() {
     let factory = GeoArrowExtensionTypeFactory;
-    let _ext = factory.create_type_instance(
-        geoarrow_schema::PointType::NAME,
-        &DataType::Int32,
-        None,
-    );
+    let _ext =
+        factory.create_type_instance(geoarrow_schema::PointType::NAME, &DataType::Int32, None);
 }
 
 #[test]
 fn factory_invalid_storage_produces_invalid_state() {
     let factory = GeoArrowExtensionTypeFactory;
-    let ext = factory.create_type_instance(
-        geoarrow_schema::PointType::NAME,
-        &DataType::Int32,
-        None,
-    );
+    let ext =
+        factory.create_type_instance(geoarrow_schema::PointType::NAME, &DataType::Int32, None);
     let display = ext.dyn_display();
     assert!(
         display.contains("InvalidExtensionType"),
@@ -184,10 +177,7 @@ fn factory_invalid_storage_produces_invalid_state() {
 #[test]
 fn factory_invalid_storage_name_still_correct() {
     let factory = GeoArrowExtensionTypeFactory;
-    let ext = factory.create_type_instance(
-        geoarrow_schema::PointType::NAME,
-        &DataType::Int32,
-        None,
-    );
+    let ext =
+        factory.create_type_instance(geoarrow_schema::PointType::NAME, &DataType::Int32, None);
     assert_eq!(ext.name(), geoarrow_schema::PointType::NAME);
 }
