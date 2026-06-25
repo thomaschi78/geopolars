@@ -11,6 +11,81 @@ use arrow_schema::extension::ExtensionType;
 use polars::prelude::PlFixedStateQuality;
 use polars_core::prelude::extension::ExtensionTypeImpl;
 
+// ---------------------------------------------------------------------------
+// ShortDisplay — short lowercase string for dyn_display
+// ---------------------------------------------------------------------------
+
+trait ShortDisplay {
+    fn short_display(&self) -> String;
+}
+
+fn coord_type_str(ct: geoarrow_schema::CoordType) -> &'static str {
+    match ct {
+        geoarrow_schema::CoordType::Interleaved => "interleaved",
+        geoarrow_schema::CoordType::Separated => "separated",
+    }
+}
+
+fn dim_str(dim: geoarrow_schema::Dimension) -> &'static str {
+    match dim {
+        geoarrow_schema::Dimension::XY => "xy",
+        geoarrow_schema::Dimension::XYZ => "xyz",
+        geoarrow_schema::Dimension::XYM => "xym",
+        geoarrow_schema::Dimension::XYZM => "xyzm",
+    }
+}
+
+macro_rules! impl_short_display_dim_coord {
+    ($struct_name:ident, $label:literal) => {
+        impl ShortDisplay for geoarrow_schema::$struct_name {
+            fn short_display(&self) -> String {
+                format!(
+                    "{}[{}, {}]",
+                    $label,
+                    dim_str(self.dimension()),
+                    coord_type_str(self.coord_type())
+                )
+            }
+        }
+    };
+}
+
+impl_short_display_dim_coord!(PointType, "point");
+impl_short_display_dim_coord!(LineStringType, "linestring");
+impl_short_display_dim_coord!(PolygonType, "polygon");
+impl_short_display_dim_coord!(MultiPointType, "multipoint");
+impl_short_display_dim_coord!(MultiLineStringType, "multilinestring");
+impl_short_display_dim_coord!(MultiPolygonType, "multipolygon");
+impl_short_display_dim_coord!(GeometryCollectionType, "geometrycollection");
+
+impl ShortDisplay for geoarrow_schema::GeometryType {
+    fn short_display(&self) -> String {
+        format!("geometry[{}]", coord_type_str(self.coord_type()))
+    }
+}
+
+impl ShortDisplay for geoarrow_schema::BoxType {
+    fn short_display(&self) -> String {
+        format!("box[{}]", dim_str(self.dimension()))
+    }
+}
+
+impl ShortDisplay for geoarrow_schema::WkbType {
+    fn short_display(&self) -> String {
+        "wkb".to_string()
+    }
+}
+
+impl ShortDisplay for geoarrow_schema::WktType {
+    fn short_display(&self) -> String {
+        "wkt".to_string()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Macro — generates a Polars ExtensionTypeImpl wrapper for each GeoArrow type
+// ---------------------------------------------------------------------------
+
 macro_rules! define_basic_type {
     (
         $(#[$($attrss:meta)*])*
@@ -27,13 +102,6 @@ macro_rules! define_basic_type {
 
             pub fn invalid(error: impl std::fmt::Display) -> Self {
                 Self(Err(error.to_string()))
-            }
-
-            fn format_inner(&self) -> String {
-                match &self.0 {
-                    Ok(inner) => format!("{:?}", inner),
-                    Err(e) => format!("InvalidExtensionType({})", e),
-                }
             }
         }
 
@@ -63,11 +131,17 @@ macro_rules! define_basic_type {
             }
 
             fn dyn_display(&self) -> Cow<'_, str> {
-                Cow::Owned(self.format_inner())
+                match &self.0 {
+                    Ok(inner) => Cow::Owned(inner.short_display()),
+                    Err(e) => Cow::Owned(format!("InvalidExtensionType({})", e)),
+                }
             }
 
             fn dyn_debug(&self) -> Cow<'_, str> {
-                Cow::Owned(self.format_inner())
+                match &self.0 {
+                    Ok(inner) => Cow::Owned(format!("{:?}", inner)),
+                    Err(e) => Cow::Owned(format!("InvalidExtensionType({})", e)),
+                }
             }
         }
 

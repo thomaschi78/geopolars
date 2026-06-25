@@ -1,10 +1,13 @@
 use arrow_schema::extension::ExtensionType;
-use geoarrow_schema::{Dimension, PointType as GeoArrowPointType};
+use geoarrow_schema::{
+    BoxType as GeoArrowBoxType, CoordType, Dimension, GeometryType as GeoArrowGeometryType,
+    PointType as GeoArrowPointType, WkbType as GeoArrowWkbType, WktType as GeoArrowWktType,
+};
 use polars::prelude::DataType;
 use polars::prelude::extension::{ExtensionTypeFactory, ExtensionTypeImpl};
 
 use crate::factory::GeoArrowExtensionTypeFactory;
-use crate::geoarrow::PointType;
+use crate::geoarrow::{BoxType, GeometryType, PointType, WkbType, WktType};
 
 // --- constructor helpers ---------------------------------------------------
 
@@ -190,4 +193,68 @@ fn factory_invalid_storage_name_still_correct() {
         None,
     );
     assert_eq!(ext.name(), geoarrow_schema::PointType::NAME);
+}
+
+// --- dyn_display exact format -----------------------------------------------
+
+#[test]
+fn dyn_display_point_xy_separated() {
+    // Default CoordType is Separated.
+    let pt = PointType::new(GeoArrowPointType::new(Dimension::XY, Default::default()));
+    assert_eq!(pt.dyn_display(), "point[xy, separated]");
+}
+
+#[test]
+fn dyn_display_point_xyz_interleaved() {
+    let inner = GeoArrowPointType::new(Dimension::XYZ, Default::default())
+        .with_coord_type(CoordType::Interleaved);
+    let pt = PointType::new(inner);
+    assert_eq!(pt.dyn_display(), "point[xyz, interleaved]");
+}
+
+#[test]
+fn dyn_display_geometry_interleaved() {
+    let inner =
+        GeoArrowGeometryType::new(Default::default()).with_coord_type(CoordType::Interleaved);
+    let gt = GeometryType::new(inner);
+    assert_eq!(gt.dyn_display(), "geometry[interleaved]");
+}
+
+#[test]
+fn dyn_display_box_xyzm() {
+    let inner = GeoArrowBoxType::new(Dimension::XYZM, Default::default());
+    let bt = BoxType::new(inner);
+    assert_eq!(bt.dyn_display(), "box[xyzm]");
+}
+
+#[test]
+fn dyn_display_wkb() {
+    let wkb = WkbType::new(GeoArrowWkbType::new(Default::default()));
+    assert_eq!(wkb.dyn_display(), "wkb");
+}
+
+#[test]
+fn dyn_display_wkt() {
+    let wkt = WktType::new(GeoArrowWktType::new(Default::default()));
+    assert_eq!(wkt.dyn_display(), "wkt");
+}
+
+// --- dyn_display vs dyn_debug for valid types --------------------------------
+
+#[test]
+fn dyn_display_differs_from_dyn_debug_for_valid_point() {
+    let pt = valid_point();
+    assert_ne!(
+        pt.dyn_display(),
+        pt.dyn_debug(),
+        "display and debug should differ for valid types"
+    );
+}
+
+#[test]
+fn dyn_debug_valid_contains_struct_name() {
+    // {:#?} / {:?} on geoarrow_schema types includes the type name.
+    let pt = valid_point();
+    let debug = pt.dyn_debug();
+    assert!(debug.contains("PointType"), "got: {debug}");
 }
